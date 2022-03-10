@@ -1,38 +1,33 @@
 # -*- coding: utf-8 -*-
 import os
-from pytube import YouTube
-from moviepy.editor import AudioFileClip
+from pytube import Search, YouTube
+# from moviepy.editor import AudioFileClip
+from trimmer.trim_source import trim_url
+from trimmer.downloader import extract_youtube_artist_title
 
+SONGS_PATH = r"C:\Users\Pisun\Music\The Zone - Dublin\0"
 SAVE_PATH = r"C:\Users\Pisun\Documents\condapoj\song_browse\songs"
 
 
-def download_video(link, output_path):
-    yt = YouTube(link)
-    return yt.streams.get_audio_only() \
-        .download(output_path=output_path)
+def download_song(url: str, output: str,
+                  full_name: str, no_fade: bool = True):
 
+    artist, _, title = extract_youtube_artist_title(url)
+    if not artist or not title:
+        artist, _, title = full_name.partition(' - ')
+    new_file_name = f'{artist} - {title}.mp3'
+    new_file_path = os.path.join(output, new_file_name)
 
-def mp4_to_mp3(mp4, mp3):
-    with AudioFileClip(mp4) as file:
-        file.write_audiofile(mp3)
-
-
-def trim_song(song, silence_threshold=-50.0, chunk_size=10):
-    trim_ms = 0
-    assert chunk_size > 0
+    trim_url(url, artist, title, False, no_fade, False,
+             None, None, None, new_file_path)
 
 
 if __name__ == '__main__':
-    # os.system('cmd /c "color a"')
+    songs = filter(lambda x: x.endswith('.mp3'),
+                   os.listdir(SONGS_PATH))
 
-    # videos_path = os.path.join(SAVE_PATH, "videos")
-
-    # link = "https://www.youtube.com/watch?v=Yem_iEHiyJ0"
-    # video = download_video(link, videos_path)
-    # song_name = os.path.basename(video).replace("mp4", "mp3")
-    # mp4_to_mp3(video, os.path.join(SAVE_PATH, song_name))
-
-    path = r"C:\Users\Pisun\Documents\condapoj\song_browse\songs\videos\Frankie Goes To Hollywood - Relax (Official Video).mp4"
-    with AudioFileClip(path) as song:
-        trim_song(song)
-        song.write_audiofile("lol.mp3")
+    for song in songs:
+        full_name, _, _ = song.rpartition('.')
+        video = Search(full_name).results[0]
+        url = video.watch_url
+        download_song(url, SAVE_PATH, full_name)
