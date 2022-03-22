@@ -1,12 +1,44 @@
 # -*- coding: utf-8 -*-
 import os
 from tqdm import tqdm
+from typing import List
+from loguru import logger
 from pytube import Search, YouTube
 from trimmer.trim_source import trim_url
 from trimmer.downloader import extract_youtube_artist_title
 
-SONGS_PATH = r"C:\Users\Pisun\Music\The Zone - Dublin"
-SAVE_PATH = r"C:\Users\Pisun\Documents\condapoj\song_browse\songs"
+# SAVE_PATH = r"C:\Users\Pisun\Documents\condapoj\song_browse\songs"
+SAVE_PATH = r"./songs"
+
+def is_song_file(name: str):
+    return name.endswith('.mp3')
+
+
+def save_songs_list(songs: List):
+    with open("Songs_list.txt", 'w') as f:
+        for s in songs[:-1]:
+            f.write(s)
+            f.write('\n')
+        f.write(songs[-1])
+
+
+def list_songs():
+    path = input("Enter songs directory: ")
+    files = os.listdir(path)
+    songs = filter(is_song_file, files)
+    return list(songs)
+
+
+def get_songs_list():
+    try:
+        with open("Songs_list.txt", 'r') as f:
+            songs = f.readlines()
+    except FileNotFoundError:
+        songs = list_songs()
+        save_songs_list(songs)
+    else:
+        songs = list(map(str.strip, songs))
+    return songs
 
 
 def correct_name(name: str) -> str:
@@ -53,9 +85,6 @@ def main():
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as e:
-        error = e
-        print("\a")
-        raise e
+    songs = get_songs_list()
+    print(*songs, sep='\n')
+    # main()
