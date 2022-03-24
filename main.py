@@ -4,8 +4,9 @@ from tqdm import tqdm
 from typing import List
 from loguru import logger
 from pytube import Search, YouTube
-from trimmer.trim_source import trim_url
-from trimmer.downloader import extract_youtube_artist_title
+# from trimmer.trim_source import trim_url
+# from trimmer.downloader import extract_youtube_artist_title
+from my_downloader import download_song
 
 # SAVE_PATH = r"C:\Users\Pisun\Documents\condapoj\song_browse\songs"
 SAVE_PATH = r"./songs"
@@ -49,25 +50,24 @@ def correct_name(name: str) -> str:
     return name
 
 
-def create_artist_title_path(url: str):
-    artist, track = extract_youtube_artist_title(url)
-    artist, track = artist or "undefined", track or "undefined"
-    full_name = f'{artist} - {track}.mp3'
-    full_name = correct_name(full_name)
-    path = os.path.join(SAVE_PATH, full_name)
-    return artist, track, path
+# def create_artist_title_path(url: str):
+#     artist, track = extract_youtube_artist_title(url)
+#     artist, track = artist or "undefined", track or "undefined"
+#     full_name = f'{artist} - {track}.mp3'
+#     full_name = correct_name(full_name)
+#     path = os.path.join(SAVE_PATH, full_name)
+#     return artist, track, path
 
 
-def download_song(url: str, no_fade: bool = True):
-    artist, track, path = create_artist_title_path(url)
+# def download_song(url: str, no_fade: bool = True):
+#     artist, track, path = create_artist_title_path(url)
 
-    trim_url(url, artist, track, False, no_fade, False,
-             None, None, None, path)
+#     trim_url(url, artist, track, False, no_fade, False,
+#              None, None, None, path)
 
 
 def search_songs():
-    songs = tuple(filter(lambda x: x.endswith('.mp3'),
-                        os.listdir(SONGS_PATH)))
+    songs = get_songs_list()
 
     urls_to_download = list()
     for song in tqdm(songs, desc="Extracting names"):
@@ -85,6 +85,4 @@ def main():
 
 
 if __name__ == '__main__':
-    songs = get_songs_list()
-    print(*songs, sep='\n')
-    # main()
+    main()

@@ -8,43 +8,46 @@ import time
 import os
 from pytube import Search, YouTube
 from tqdm import tqdm
-from main import download_song
+from main import download_song, get_songs_list
 
-SONGS_PATH = r"C:\Users\Pisun\Music\The Zone - Dublin\0"
-
-
+@logger.catch
 def searcher(queue, event):
-    songs = tuple(filter(lambda x: x.endswith('.mp3'),
-                         os.listdir(SONGS_PATH)))
-    logger.info(f"Searcher finded {len(songs)} songs")
+    logger.debug("Searcher started")
+    songs = get_songs_list()
+    logger.debug("Searcher finded {} songs", len(songs))
     for song in songs:
         if event.is_set():
-            break
+            logger.debug("Searcher exiting because event set")
+            return
         full_name, _, _ = song.rpartition('.')
-        logger.info(f"Searcher searching for {full_name}")
+        logger.debug("Searcher searching for {}", full_name)
         video = Search(full_name).results[0]
-        logger.info(f"Searcher find video {full_name} -> {video.title}")
+        logger.info("Searcher find video {} -> {}", full_name, video.title)
         url = video.watch_url
-        logger.info(f"Searcher find {url}")
+        logger.debug("Searcher find url: {}", url)
         queue.put(url)
 
-    event.set()
+    logger.debug("Searcher exiting normally")
 
 
+@logger.catch
 def downloader(queue, event):
+    logger.debug("Downloader started")
     while not event.is_set() or not queue.empty():
         url = queue.get()
-        logger.info(f"Downloader downloading {url}")
+        logger.debug("Downloader downloading {}", url)
         download_song(url)
+    logger.debug("Downloader exiting normally")
 
 
 if __name__ == "__main__":
-    pipeline = queue.Queue(maxsize=16)
+    logger.add("log_info.txt", level="INFO")
+    pipeline = queue.Queue(maxsize=64)
     event = threading.Event()
     with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
-        logger.info("Submitting searcher")
+        logger.debug("Submitting searcher")
         executor.submit(searcher, pipeline, event)
-        logger.info("Submitting downloaders")
+        logger.debug("Submitting downloaders")
         for i in range(8):
             executor.submit(downloader, pipeline, event)
         
@@ -52,7 +55,9 @@ if __name__ == "__main__":
             try:
                 pass
             except KeyboardInterrupt:
+                logger.debug("Event set by main")
                 event.set()
+                break
 
 
 
