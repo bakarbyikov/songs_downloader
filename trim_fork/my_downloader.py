@@ -5,22 +5,26 @@ from typing import Tuple
 import youtube_dl
 from loguru import logger
 
-from metadata import extract_artist_title, trim_parentheses
-from normalizer import normalize_song
-from renamer import rename_song
-from tagger import tag_mp3
+from trim_fork.metadata import extract_artist_title, trim_parentheses
+from trim_fork.normalizer import normalize_song
+from trim_fork.renamer import rename_song
+from trim_fork.tagger import tag_mp3
 
 
-def download_song(url: str):
+@logger.catch
+def download_song(url: str, output: str=None):
     artist, title = extract_youtube_artist_title(url)
     logger.info('Song name set to {}', f'{artist} - {title}')
 
     mp3_file = download_from_youtube(url)
-    mp3_file = rename_song(mp3_file, artist, title)
+    mp3_file = rename_song(mp3_file, artist, title, output)
     normalize_song(mp3_file)
     tag_mp3(mp3_file, artist, title, url)
 
+    return mp3_file
 
+
+@logger.catch
 def download_from_youtube(url: str) -> str:
         logger.debug('Downloading from youtube url={}', url)
 
@@ -47,6 +51,7 @@ def download_from_youtube(url: str) -> str:
         return full_filename
 
 
+@logger.catch
 def fetch_youtube_metadata(url: str) -> Tuple[str, str, str]:
     logger.debug('fetching metadata from youtube page: {}', url)
 
@@ -71,6 +76,7 @@ def fetch_youtube_metadata(url: str) -> Tuple[str, str, str]:
         return artist, track, full_title
 
 
+@logger.catch
 def extract_youtube_artist_title(url: str) -> Tuple[str, str]:
     artist, track, full_title = fetch_youtube_metadata(url)
     if artist and track:

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
+from unittest import result
 from tqdm import tqdm
 from typing import List
 from loguru import logger
 from pytube import Search, YouTube
 # from trimmer.trim_source import trim_url
 # from trimmer.downloader import extract_youtube_artist_title
-from my_downloader import download_song
+from trim_fork.my_downloader import download_song
 
 # SAVE_PATH = r"C:\Users\Pisun\Documents\condapoj\song_browse\songs"
 SAVE_PATH = r"./songs"
@@ -24,7 +25,8 @@ def save_songs_list(songs: List):
 
 
 def list_songs():
-    path = input("Enter songs directory: ")
+    # path = input("Enter songs directory: ")
+    path = r"/media/andrey/86BAD034BAD0228B/Documents and Settings/Pisun/Music/The Zone - Dublin"
     files = os.listdir(path)
     songs = filter(is_song_file, files)
     return list(songs)
@@ -70,13 +72,23 @@ def search_songs():
     songs = get_songs_list()
 
     urls_to_download = list()
-    for song in tqdm(songs, desc="Extracting names"):
+    for song in tqdm(songs, desc="Searching videos"):
         full_name, _, _ = song.rpartition('.')
         video = Search(full_name).results[0]
         url = video.watch_url
         urls_to_download.append(url)
 
     return urls_to_download
+
+
+def search_by_filename(filename: str):
+    if filename.endswith(".mp3"):
+        filename = filename[:-4]
+    
+    results = Search(filename).results
+    video = results[0]
+    return video.watch_url
+
 
 
 def main():
