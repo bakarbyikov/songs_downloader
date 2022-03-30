@@ -1,47 +1,14 @@
 # -*- coding: utf-8 -*-
-import os
-from unittest import result
+from os import path
 from tqdm import tqdm
-from typing import List
+from typing import List, Tuple
 from loguru import logger
 from pytube import Search, YouTube
-# from trimmer.trim_source import trim_url
-# from trimmer.downloader import extract_youtube_artist_title
-from trim_fork.my_downloader import download_song
+from pydub import AudioSegment, silence, effects
 
-# SAVE_PATH = r"C:\Users\Pisun\Documents\condapoj\song_browse\songs"
+from songs_list import get_songs
+
 SAVE_PATH = r"./songs"
-
-def is_song_file(name: str):
-    return name.endswith('.mp3')
-
-
-def save_songs_list(songs: List):
-    with open("Songs_list.txt", 'w') as f:
-        for s in songs[:-1]:
-            f.write(s)
-            f.write('\n')
-        f.write(songs[-1])
-
-
-def list_songs():
-    # path = input("Enter songs directory: ")
-    path = r"/media/andrey/86BAD034BAD0228B/Documents and Settings/Pisun/Music/The Zone - Dublin"
-    files = os.listdir(path)
-    songs = filter(is_song_file, files)
-    return list(songs)
-
-
-def get_songs_list():
-    try:
-        with open("Songs_list.txt", 'r') as f:
-            songs = f.readlines()
-    except FileNotFoundError:
-        songs = list_songs()
-        save_songs_list(songs)
-    else:
-        songs = list(map(str.strip, songs))
-    return songs
 
 
 def correct_name(name: str) -> str:
@@ -52,48 +19,98 @@ def correct_name(name: str) -> str:
     return name
 
 
-# def create_artist_title_path(url: str):
-#     artist, track = extract_youtube_artist_title(url)
-#     artist, track = artist or "undefined", track or "undefined"
-#     full_name = f'{artist} - {track}.mp3'
-#     full_name = correct_name(full_name)
-#     path = os.path.join(SAVE_PATH, full_name)
-#     return artist, track, path
+def find_best_match(full_name: str, videos: List[YouTube]) -> YouTube:
+    return videos[0]
 
 
-# def download_song(url: str, no_fade: bool = True):
-#     artist, track, path = create_artist_title_path(url)
-
-#     trim_url(url, artist, track, False, no_fade, False,
-#              None, None, None, path)
-
-
-def search_songs():
-    songs = get_songs_list()
-
-    urls_to_download = list()
-    for song in tqdm(songs, desc="Searching videos"):
-        full_name, _, _ = song.rpartition('.')
-        video = Search(full_name).results[0]
-        url = video.watch_url
-        urls_to_download.append(url)
-
-    return urls_to_download
-
-
-def search_by_filename(filename: str):
-    if filename.endswith(".mp3"):
-        filename = filename[:-4]
+def search_song(full_name: str) -> YouTube:
+    if full_name.endswith(".mp3"):
+        full_name = full_name[:-4]
     
-    results = Search(filename).results
-    video = results[0]
-    return video.watch_url
+    results = Search(full_name).results
+    assert len(results) > 0, f"Video '{full_name}' not found"
+    video = find_best_match(full_name, results)
+    return video
 
 
+def download_audio(video: YouTube) -> str:
+    stream = video.streams.get_audio_only()
+    path = stream.download(output_path="./tmp", skip_existing=False, max_retries=10)
+    return path
 
+
+def trim(song: AudioSegment) -> AudioSegment:
+    args = silence_thresh, chunk_size = -50, 10
+
+    start_trim = silence.detect_leading_silence(song, *args)
+    end_trim = silence.detect_leading_silence(song.reverse(), *args)
+    assert start_trim < len(song), "Song is all silent"
+
+    trimmed = song[start_trim:-end_trim]
+    logger.info(f"Song trimed from {len(song)} to {len(trimmed)}")
+    return trimmed
+
+
+def get_song_name_and_artist(video: YouTube) -> Tuple[str, str]:
+    title, author = None, None
+    for meta in video.metadata:
+        if "Song" in meta:
+            title = meta["Song"]
+        if "Artist" in meta:
+            author = meta["Artist"]
+        if title and author:
+            return title, author
+    
+    yt_title = video.title
+    if " - " in yt_title:
+        author, _, title = yt_title.partition(' - ')
+        return title, author
+    
+    title, author = video.title, video.author
+    return title, author
+
+
+def process_song(song_path: str, name: str, artist:str, url:str) -> str:
+    song = AudioSegment.from_file(song_path)
+    song = trim(song)
+    song = effects.normalize(song)
+    logger.info("Song nomalized")
+    new_name = correct_name(f"{artist} - {name}.mp3")
+    new_path = path.join(SAVE_PATH, new_name)
+    comment = f"downloaded from {url}"
+    tags = {"comment": comment, "artist": artist, "title": name}
+    song.export(new_path, format='mp3', tags=tags)
+    logger.info(f"Song saved succsesfully to '{new_path}'")
+    return new_path
+
+
+@logger.catch
+def down_song_by_name(song:str):
+    video = search_song(song)
+    logger.info(f"Searched for song '{song}' -> '{video.title}'({video.watch_url})")
+    path = download_audio(video)
+    logger.info(f"Downloaded audio to '{path}'")
+    name, artist = get_song_name_and_artist(video)
+    url = video.watch_url
+    path = process_song(path, name, artist, url)
+
+
+@logger.catch
+def down_song_by_url(url:str):
+    video = YouTube(url)
+    logger.info(f"Searched for song '{url}' -> '{video.title}'({video.watch_url})")
+    path = download_audio(video)
+    logger.info(f"Downloaded audio to '{path}'")
+    name, artist = get_song_name_and_artist(video)
+    url = video.watch_url
+    path = process_song(path, name, artist, url)
+    path = process_song(path, name, artist, url)
+
+
+@logger.catch
 def main():
-    for url in tqdm(search_songs(), desc="Downloading songs"):
-        download_song(url)
+    song = "Taka Perry - Jesus Walks (feat. A.GIRL, Emalia & Gia Vorne)"
+    down_song_by_name(song)
 
 
 if __name__ == '__main__':
