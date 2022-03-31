@@ -22,6 +22,12 @@ def generate_fullname(artist: str, name: str) -> str:
     return correct_name(f"{artist} - {name}.mp3")
 
 
+def song_name_from_video(video: YouTube) -> str:
+    artist, name = get_song_name_and_artist(video)
+    fullname = generate_fullname(artist, name)
+    return fullname
+
+
 def find_best_match(full_name: str, videos: List[YouTube]) -> YouTube:
     return videos[0]
 
@@ -79,7 +85,7 @@ def process_song(song_path: str, name: str, artist:str, url:str) -> str:
     song = trim(song)
     song = effects.normalize(song)
     logger.info("Song nomalized")
-    new_name = correct_name(f"{artist} - {name}.mp3")
+    new_name = generate_fullname(name, artist)
     new_path = path.join(SAVE_PATH, new_name)
     comment = f"downloaded from {url}"
     tags = {"comment": comment, "artist": artist, "title": name}
