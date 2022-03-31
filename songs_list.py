@@ -1,9 +1,8 @@
 import os
 from typing import List
-from settings import SONG_LIST_PATH, SONGS_FOLDER
 
-def is_mp3_file(name: str) -> bool:
-    return name.endswith('.mp3')
+from names import is_mp3_file, correct_name
+from settings import SONG_LIST_PATH, SONGS_FOLDER
 
 
 def save_songs_list(songs: List[str]):
@@ -23,8 +22,8 @@ def open_song_list(path: str) -> List[str]:
 def list_songs(path: str) -> List[str]:
     files = os.listdir(path)
     songs = filter(is_mp3_file, files)
-    songs = [s[:-4] for s in songs]
-    return list(songs)
+    songs = [correct_name(s) for s in songs]
+    return songs
 
 
 def get_songs() -> List[str]:
