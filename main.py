@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 from os import path
-from tqdm import tqdm
 from typing import List, Tuple
 from loguru import logger
 from pytube import Search, YouTube
 from pydub import AudioSegment, silence, effects
+from tqdm import tqdm
 
 from songs_list import get_songs
-
-SAVE_PATH = r"./songs"
+from settings import SAVE_PATH
 
 
 def correct_name(name: str) -> str:
@@ -17,6 +16,10 @@ def correct_name(name: str) -> str:
         if s in name:
             name = name.replace(s, '-')
     return name
+
+
+def generate_fullname(artist: str, name: str) -> str:
+    return correct_name(f"{artist} - {name}.mp3")
 
 
 def find_best_match(full_name: str, videos: List[YouTube]) -> YouTube:
@@ -36,6 +39,7 @@ def search_song(full_name: str) -> YouTube:
 def download_audio(video: YouTube) -> str:
     stream = video.streams.get_audio_only()
     path = stream.download(output_path="./tmp", skip_existing=False, max_retries=10)
+    logger.info(f"Audio downloaded  to '{path}'")
     return path
 
 
@@ -52,22 +56,22 @@ def trim(song: AudioSegment) -> AudioSegment:
 
 
 def get_song_name_and_artist(video: YouTube) -> Tuple[str, str]:
-    title, author = None, None
+    author, title = None, None
     for meta in video.metadata:
-        if "Song" in meta:
-            title = meta["Song"]
         if "Artist" in meta:
             author = meta["Artist"]
-        if title and author:
-            return title, author
+        if "Song" in meta:
+            title = meta["Song"]
+        if author and title:
+            return author, title 
     
     yt_title = video.title
     if " - " in yt_title:
         author, _, title = yt_title.partition(' - ')
-        return title, author
+        return author, title
     
-    title, author = video.title, video.author
-    return title, author
+    author, title = video.author, video.title
+    return author, title
 
 
 def process_song(song_path: str, name: str, artist:str, url:str) -> str:
@@ -84,33 +88,38 @@ def process_song(song_path: str, name: str, artist:str, url:str) -> str:
     return new_path
 
 
+def down_song(video: YouTube) -> str:
+    path = download_audio(video)
+    name, artist = get_song_name_and_artist(video)
+    url = video.watch_url
+    path = process_song(path, name, artist, url)
+    return path
+
+
 @logger.catch
-def down_song_by_name(song:str):
+def down_song_by_name(song:str) -> str:
     video = search_song(song)
     logger.info(f"Searched for song '{song}' -> '{video.title}'({video.watch_url})")
-    path = download_audio(video)
-    logger.info(f"Downloaded audio to '{path}'")
-    name, artist = get_song_name_and_artist(video)
-    url = video.watch_url
-    path = process_song(path, name, artist, url)
+    return down_song(video)
 
 
 @logger.catch
-def down_song_by_url(url:str):
+def down_song_by_url(url:str) -> str:
     video = YouTube(url)
-    logger.info(f"Searched for song '{url}' -> '{video.title}'({video.watch_url})")
-    path = download_audio(video)
-    logger.info(f"Downloaded audio to '{path}'")
-    name, artist = get_song_name_and_artist(video)
-    url = video.watch_url
-    path = process_song(path, name, artist, url)
-    path = process_song(path, name, artist, url)
+    return down_song(video)
 
 
 @logger.catch
 def main():
-    song = "Taka Perry - Jesus Walks (feat. A.GIRL, Emalia & Gia Vorne)"
-    down_song_by_name(song)
+    songs = get_songs()
+
+    with open("songs_search.txt", "w") as f:
+        for song in tqdm(songs, desc="Searching songs"):
+            video = search_song(song)
+            artist, name = get_song_name_and_artist(video)
+            fullname = generate_fullname(artist, name)
+            f.write(f"'{song}' -> '{fullname}'({video.watch_url})\n")
+            # logger.info(f"Searched for song '{song}' -> '{fullname}'({video.watch_url})")
 
 
 if __name__ == '__main__':

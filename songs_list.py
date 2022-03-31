@@ -1,8 +1,6 @@
 import os
 from typing import List
-
-SONG_LIST_PATH = "./Songs_list.txt"
-SONGS_FOLDER = "/media/andrey/86BAD034BAD0228B/Documents and Settings/Pisun/Music/The Zone - Dublin"
+from settings import SONG_LIST_PATH, SONGS_FOLDER
 
 def is_mp3_file(name: str) -> bool:
     return name.endswith('.mp3')
