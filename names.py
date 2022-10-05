@@ -49,15 +49,16 @@ def get_song_name_and_artist(video: YouTube) -> Tuple[str, str]:
     return author, title
 
 
+blocked_sumbols = r'<>:"/\|?*' + r"'"
+block_translate = str.maketrans({s: None for s in blocked_sumbols})
 def correct_name(name: str) -> str:
     if is_mp3_file(name):
         name = delete_extention(name)
     name = delete_parentheses(name)
 
-    blocked_sumbols = r'<>:"/\|?*' + r"'"
-    for s in blocked_sumbols:
-        if s in name:
-            name = name.replace(s, '-')
+    name.translate(block_translate)
+    if not name.isascii() or not name.isprintable():
+        name = ''.join(s for s in name if s.isascii() and s.isprintable())
     return name.strip()
 
 
